@@ -4,12 +4,13 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
-var indexRouter = require('./routes/index');
+
 var usersRouter = require('./routes/users');
 
 var app = express();
-
-// view engine setup
+const http = require('http');
+const{connectToDb} = require('./config/db');
+// view   setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
@@ -19,9 +20,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
 
+app.use('/users', usersRouter);
+require('dotenv').config();
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
@@ -38,4 +39,8 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
+http.createServer(app).listen(3000, () => {
+  connectToDb();
+  console.log('Server started on port 3000');
+});
 module.exports = app;
