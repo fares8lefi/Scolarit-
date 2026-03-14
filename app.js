@@ -6,6 +6,7 @@ import logger from 'morgan';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import http from 'http';
+import cors from 'cors';
 
 import usersRouter from './routes/users.js';
 import timetableRouter from './routes/timetable.js';
@@ -17,6 +18,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true
+}));
 
 // view setup
 app.set('views', path.join(__dirname, 'views'));
