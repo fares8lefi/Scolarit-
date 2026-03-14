@@ -1,23 +1,18 @@
 import express from "express";
-import {
-  createClass, getClasses,
-  createSubject, getSubjects,
-  createClassroom, getClassrooms,
-  createTimetableEntry, getTimetable
-} from "../Controllers/timetableController.js";
+import * as timetableController from "../Controllers/timetableController.js";
 
 const router = express.Router();
 
-router.post("/classes", createClass);
-router.get("/classes", getClasses);
+router.post("/classes/createClass", timetableController.createClass);
+router.get("/classes/getClasses", timetableController.getClasses);
 
-router.post("/subjects", createSubject);
-router.get("/subjects", getSubjects);
+router.post("/subjects/createSubject", timetableController.createSubject);
+router.get("/subjects/getSubjects", timetableController.getSubjects);
 
-router.post("/classrooms", createClassroom);
-router.get("/classrooms", getClassrooms);
+router.post("/classrooms/createClassroom", timetableController.createClassroom);
+router.get("/classrooms/getClassrooms", timetableController.getClassrooms);
 
-router.post("/entries", createTimetableEntry);
-router.get("/entries", getTimetable);
+router.post("/entries/createTimetableEntry", timetableController.createTimetableEntry);
+router.get("/entries/getTimetable", timetableController.getTimetable);
 
 export default router;
