@@ -1,8 +1,8 @@
-const userModel = require("../Models/userModel");
-const { sendInvitationEmail } = require("../services/invitationEmail");
-const { validateInvite } = require("../validations/userValidation");
+import userModel from "../Models/UserModel.js";
+import { sendInvitationEmail } from "../services/invitationEmail.js";
+import { validateInvite } from "../validations/userValidation.js";
 
-module.exports.inviteUser = async (req, res) => {
+export const inviteUser = async (req, res) => {
   try {
     //validation de l'invitation
     const { error } = validateInvite(req.body);

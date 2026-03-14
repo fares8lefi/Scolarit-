@@ -1,6 +1,6 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-module.exports.connectToDb = async (req, res) => {
+export const connectToDb = async (req, res) => {
   mongoose.set("strictQuery", false);
   mongoose
     .connect(process.env.db_url)
