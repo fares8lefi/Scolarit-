@@ -6,7 +6,6 @@ const { validateInvite, validateAcceptInvitation, validateLogin } = require("../
 
 module.exports.inviteUser = async (req, res) => {
   try {
-    // ... (logic remains same)
     // validation de l'invitation
     const { error } = validateInvite(req.body);
     if (error) {
@@ -82,9 +81,7 @@ module.exports.singup = async (req, res) => {
   }
 };
 
-
 // Login
-
 module.exports.login = async (req, res) => {
   try {
     const { error } = validateLogin(req.body);
@@ -134,12 +131,7 @@ module.exports.login = async (req, res) => {
   }
 };
 
-
-// Logout (côté client — invalider le token)
-
+// Logout
 module.exports.logout = async (req, res) => {
-  // Le logout JWT est géré côté client (supprimer le token du stockage)
-  // On retourne simplement un succès
   res.status(200).json({ message: "Déconnexion réussie" });
 };
-
