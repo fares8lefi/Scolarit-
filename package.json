@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "name": "scolarit",
   "version": "0.0.0",
   "private": true,
@@ -17,9 +16,11 @@
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
+    "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
     "morgan": "~1.9.1",
+    "nodemailer": "^8.0.2",
     "nodemon": "^3.1.13"
   }
 }
