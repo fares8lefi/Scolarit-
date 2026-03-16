@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const timetableEntrySchema = new mongoose.Schema({
   classId: {
@@ -8,7 +8,7 @@ const timetableEntrySchema = new mongoose.Schema({
   },
   teacherId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User", // Assuming teachers are in the User collection
+    ref: "User", 
     required: true,
   },
   subjectId: {
@@ -36,14 +36,8 @@ const timetableEntrySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Rule 1: A class cannot have two courses at the same time.
-// Rule 2: A teacher cannot teach two classes at the same time.
-// Rule 3: A classroom cannot host two courses at the same time.
-
 timetableEntrySchema.pre("save", async function() {
   const entry = this;
-  
-  // Basic validation
   if (entry.startTime >= entry.endTime) {
     throw new Error("Start time must be before end time");
   }
@@ -61,21 +55,18 @@ timetableEntrySchema.pre("save", async function() {
 
   const TimetableEntry = mongoose.model("TimetableEntry");
 
-  // Check Class conflict
   const classConflict = await TimetableEntry.findOne({
     ...query,
     classId: entry.classId
   });
   if (classConflict) throw new Error("This class already has a course during this time.");
 
-  // Check Teacher conflict
   const teacherConflict = await TimetableEntry.findOne({
     ...query,
     teacherId: entry.teacherId
   });
   if (teacherConflict) throw new Error("This teacher is already teaching another class during this time.");
 
-  // Check Classroom conflict
   const classroomConflict = await TimetableEntry.findOne({
     ...query,
     classroomId: entry.classroomId
@@ -83,4 +74,4 @@ timetableEntrySchema.pre("save", async function() {
   if (classroomConflict) throw new Error("This classroom is already booked during this time.");
 });
 
-export default mongoose.model("TimetableEntry", timetableEntrySchema);
+module.exports = mongoose.model("TimetableEntry", timetableEntrySchema);

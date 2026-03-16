@@ -36,7 +36,23 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-  }
+  },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    default: null
+  },
+  children: [{
+    name: {
+      type: String,
+      required: true
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      required: true
+    }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
