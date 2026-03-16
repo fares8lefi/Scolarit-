@@ -12,7 +12,7 @@ module.exports.inviteUser = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { firstName, lastName, email, role, phone } = req.body;
+    const { firstName, lastName, email, role, phone, classId } = req.body;
     
     let code;
     let isUnique = false;
@@ -32,6 +32,7 @@ module.exports.inviteUser = async (req, res) => {
       email,
       role,
       phone,
+      classId,
       invitationCode: code,
       invitationExpires
     });
@@ -92,7 +93,7 @@ module.exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Vérifier si l'utilisateur existe
-    const user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email }).populate('classId');
     if (!user) {
       return res.status(404).json({ message: "Email ou mot de passe incorrect" });
     }
@@ -124,6 +125,7 @@ module.exports.login = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        classId: user.classId,
       }
     });
   } catch (error) {
@@ -134,4 +136,58 @@ module.exports.login = async (req, res) => {
 // Logout
 module.exports.logout = async (req, res) => {
   res.status(200).json({ message: "Déconnexion réussie" });
+};
+
+// Obtenir tous les utilisateurs (filtrable par rôle)
+module.exports.getUsers = async (req, res) => {
+  try {
+    const { role } = req.query;
+    const query = role ? { role } : {};
+    const users = await userModel.find(query)
+      .select("-password -invitationCode")
+      .populate('classId')
+      .populate('children.classId');
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir un utilisateur par ID
+module.exports.getUserById = async (req, res) => {
+  try {
+    const user = await userModel.findById(req.params.id)
+      .select("-password -invitationCode")
+      .populate('classId')
+      .populate('children.classId');
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Mettre à jour un utilisateur
+module.exports.updateUser = async (req, res) => {
+  try {
+    const updatedUser = await userModel.findByIdAndUpdate(req.params.id, req.body, { new: true })
+      .select("-password -invitationCode")
+      .populate('classId')
+      .populate('children.classId');
+    if (!updatedUser) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Supprimer un utilisateur
+module.exports.deleteUser = async (req, res) => {
+  try {
+    const deletedUser = await userModel.findByIdAndDelete(req.params.id);
+    if (!deletedUser) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    res.status(200).json({ message: "Utilisateur supprimé avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
