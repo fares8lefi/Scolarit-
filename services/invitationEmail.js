@@ -1,6 +1,6 @@
-import nodemailer from "nodemailer";
+const nodemailer = require("nodemailer");
 
-export const sendInvitationEmail = async (user, code) => {
+exports.sendInvitationEmail = async (user, code) => {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
