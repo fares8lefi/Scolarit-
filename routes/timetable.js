@@ -1,18 +1,37 @@
-import express from "express";
-import * as timetableController from "../Controllers/timetableController.js";
+const express = require("express");
+const timetableController = require("../Controllers/timetableController");
 
 const router = express.Router();
 
-router.post("/classes/createClass", timetableController.createClass);
-router.get("/classes/getClasses", timetableController.getClasses);
+// Classes
+router.post("/classes", timetableController.createClass);
+router.get("/classes", timetableController.getClasses);
+router.get("/classes/:id", timetableController.getClassById);
+router.put("/classes/:id", timetableController.updateClass);
+router.delete("/classes/:id", timetableController.deleteClass);
 
-router.post("/subjects/createSubject", timetableController.createSubject);
-router.get("/subjects/getSubjects", timetableController.getSubjects);
+// Subjects
+router.post("/subjects", timetableController.createSubject);
+router.get("/subjects", timetableController.getSubjects);
+router.get("/subjects/:id", timetableController.getSubjectById);
+router.put("/subjects/:id", timetableController.updateSubject);
+router.delete("/subjects/:id", timetableController.deleteSubject);
 
-router.post("/classrooms/createClassroom", timetableController.createClassroom);
-router.get("/classrooms/getClassrooms", timetableController.getClassrooms);
+// Classrooms
+router.post("/classrooms", timetableController.createClassroom);
+router.get("/classrooms", timetableController.getClassrooms);
+router.get("/classrooms/:id", timetableController.getClassroomById);
+router.put("/classrooms/:id", timetableController.updateClassroom);
+router.delete("/classrooms/:id", timetableController.deleteClassroom);
 
-router.post("/entries/createTimetableEntry", timetableController.createTimetableEntry);
-router.get("/entries/getTimetable", timetableController.getTimetable);
+// Entries
+router.post("/entries", timetableController.createTimetableEntry);
+router.get("/entries", timetableController.getTimetable);
+router.get("/entries/:id", timetableController.getTimetableEntryById);
+router.put("/entries/:id", timetableController.updateTimetableEntry);
+router.delete("/entries/:id", timetableController.deleteTimetableEntry);
 
-export default router;
+// Parent timetable
+router.get("/parent/:parentId/entries", timetableController.getParentTimetable);
+
+module.exports = router;
