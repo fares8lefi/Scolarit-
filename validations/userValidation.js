@@ -35,3 +35,19 @@ exports.validateAcceptInvitation = (data) => {
   });
   return schema.validate(data);
 };
+
+exports.validateAddChild = (child) => {
+  const schema = Joi.object({
+    name: Joi.string().required(),
+    classId: Joi.string().required()
+  });
+  return schema.validate(child);
+};
+
+exports.validateUpdateChild = (child) => {
+  const schema = Joi.object({
+    name: Joi.string(),
+    classId: Joi.string()
+  }).min(1);
+  return schema.validate(child);
+};

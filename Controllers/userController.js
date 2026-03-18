@@ -2,7 +2,7 @@ const userModel = require("../Models/UserModel.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { sendInvitationEmail } = require("../services/invitationEmail");
-const { validateInvite, validateAcceptInvitation, validateLogin } = require("../validations/userValidation");
+const { validateInvite, validateAcceptInvitation, validateLogin, validateAddChild, validateUpdateChild } = require("../validations/userValidation");
 
 module.exports.inviteUser = async (req, res) => {
   try {
@@ -12,8 +12,23 @@ module.exports.inviteUser = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { firstName, lastName, email, role, phone, classId } = req.body;
+    const normalizedEmail = req.body.email.toLowerCase().trim();
+    console.log(`[DEBUG] Attempting cleanup for: ${normalizedEmail}`);
+    const { firstName, lastName, role, phone, classId, children } = req.body;
     
+    // On nettoie TOUJOURS avant de commencer quoi que ce soit si un utilisateur existe avec cet email
+    // et s'il est actif, on bloque.
+    const existingUser = await userModel.findOne({ email: normalizedEmail });
+    if (existingUser && existingUser.status === "ACTIVE") {
+      return res.status(400).json({ message: "Cet utilisateur possède déjà un compte actif." });
+    }
+
+    // On supprime de manière inconditionnelle avant de recréer (sauf si actif au-dessus)
+    const del = await userModel.deleteMany({ email: normalizedEmail });
+    if (del.deletedCount > 0) {
+      console.log(`[DEBUG] Force deleted ${del.deletedCount} records for ${normalizedEmail}`);
+    }
+
     let code;
     let isUnique = false;
 
@@ -29,10 +44,11 @@ module.exports.inviteUser = async (req, res) => {
     const user = await userModel.create({
       firstName,
       lastName,
-      email,
+      email: normalizedEmail,
       role,
       phone,
       classId,
+      children,
       invitationCode: code,
       invitationExpires
     });
@@ -41,6 +57,7 @@ module.exports.inviteUser = async (req, res) => {
     
     res.status(201).json({ message: "Utilisateur invité avec succès", code }); 
   } catch (error) {
+    console.error("Error in inviteUser:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -93,7 +110,10 @@ module.exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Vérifier si l'utilisateur existe
-    const user = await userModel.findOne({ email }).populate('classId');
+    const user = await userModel.findOne({ email })
+      .populate('classId')
+      .populate('children.classId');
+      
     if (!user) {
       return res.status(404).json({ message: "Email ou mot de passe incorrect" });
     }
@@ -117,15 +137,17 @@ module.exports.login = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "Connexion réussie",
+      message: "DIAGNOSTIC REUSSI",
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
         role: user.role,
         classId: user.classId,
+        children: user.children,
+        diag: "BACKEND_UPDATED"
       }
     });
   } catch (error) {
@@ -187,6 +209,195 @@ module.exports.deleteUser = async (req, res) => {
     const deletedUser = await userModel.findByIdAndDelete(req.params.id);
     if (!deletedUser) return res.status(404).json({ message: "Utilisateur non trouvé" });
     res.status(200).json({ message: "Utilisateur supprimé avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir tous les parents avec leurs enfants et classes associées
+module.exports.getParentsWithChildren = async (req, res) => {
+  try {
+    const parents = await userModel.find({ role: "PARENT" })
+      .select("firstName lastName email phone children")
+      .populate({
+        path: 'children.classId',
+        select: 'name level'
+      });
+
+    const result = parents.map(parent => ({
+      parentId: parent._id,
+      parentName: `${parent.firstName} ${parent.lastName}`,
+      email: parent.email,
+      phone: parent.phone,
+      children: parent.children.map(child => ({
+        name: child.name,
+        class: child.classId ? child.classId.name : "N/A",
+        level: child.classId ? child.classId.level : "N/A"
+      }))
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+// Obtenir tous les élèves de l'école avec recherche et filtres pour l'admin
+module.exports.getAllStudents = async (req, res) => {
+  try {
+    const { search, classId } = req.query;
+    const mongoose = require("mongoose");
+    
+    let pipeline = [
+      { $match: { role: "PARENT" } },
+      { $unwind: "$children" },
+      {
+        $lookup: {
+          from: "classes", 
+          localField: "children.classId",
+          foreignField: "_id",
+          as: "classInfo"
+        }
+      },
+      { $unwind: { path: "$classInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          studentId: "$children._id",
+          name: "$children.name",
+          parentName: { $concat: ["$firstName", " ", "$lastName"] },
+          parentId: "$_id",
+          className: { $ifNull: ["$classInfo.name", "N/A"] },
+          classLevel: { $ifNull: ["$classInfo.level", "N/A"] },
+          classId: "$children.classId"
+        }
+      }
+    ];
+
+    // Filtre par nom d'élève ou nom de parent
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { parentName: { $regex: search, $options: "i" } }
+          ]
+        }
+      });
+    }
+
+    // Filtre par classe
+    if (classId && classId !== "") {
+      pipeline.push({
+        $match: { classId: new mongoose.Types.ObjectId(classId) }
+      });
+    }
+
+    const students = await userModel.aggregate(pipeline);
+    res.status(200).json(students);
+  } catch (error) {
+    console.error("Error in getAllStudents:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Ajouter un enfant à un parent existant
+module.exports.addChild = async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    const { error } = validateAddChild(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const { name, classId } = req.body;
+
+    const parent = await userModel.findById(parentId);
+    if (!parent || parent.role !== "PARENT") {
+      return res.status(404).json({ message: "Parent non trouvé ou rôle incorrect" });
+    }
+
+    // On pourrait aussi vérifier si la classe existe ici, mais on fait confiance à l'admin pour l'instant
+    // ou on ajoute une vérification simple :
+    // const classExists = await classModel.findById(classId);
+    // if (!classExists) return res.status(404).json({ message: "Classe non trouvée" });
+
+    parent.children.push({ name, classId });
+    await parent.save();
+
+    const updatedParent = await userModel.findById(parentId)
+      .select("-password -invitationCode")
+      .populate('children.classId');
+
+    res.status(200).json({ 
+      message: "Enfant ajouté avec succès", 
+      parent: updatedParent 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Mettre à jour un enfant spécifique
+module.exports.updateChild = async (req, res) => {
+  try {
+    const { parentId, childId } = req.params;
+    const { error } = validateUpdateChild(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const { name, classId } = req.body;
+
+    const parent = await userModel.findById(parentId);
+    if (!parent || parent.role !== "PARENT") {
+      return res.status(404).json({ message: "Parent non trouvé ou rôle incorrect" });
+    }
+
+    const child = parent.children.id(childId);
+    if (!child) return res.status(404).json({ message: "Enfant non trouvé" });
+
+    if (name) child.name = name;
+    if (classId) child.classId = classId;
+
+    await parent.save();
+
+    const updatedParent = await userModel.findById(parentId)
+      .select("-password -invitationCode")
+      .populate('children.classId');
+
+    res.status(200).json({ 
+      message: "Enfant mis à jour avec succès", 
+      parent: updatedParent 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Supprimer un enfant spécifique
+module.exports.deleteChild = async (req, res) => {
+  try {
+    const { parentId, childId } = req.params;
+
+    const parent = await userModel.findById(parentId);
+    if (!parent || parent.role !== "PARENT") {
+      return res.status(404).json({ message: "Parent non trouvé ou rôle incorrect" });
+    }
+
+    parent.children.pull(childId);
+    await parent.save();
+
+    const updatedParent = await userModel.findById(parentId)
+      .select("-password -invitationCode")
+      .populate('children.classId');
+
+    res.status(200).json({ 
+      message: "Enfant supprimé avec succès", 
+      parent: updatedParent 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
