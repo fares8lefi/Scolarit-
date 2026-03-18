@@ -19,6 +19,7 @@ exports.sendInvitationEmail = async (user, code) => {
 
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.log(error);
+    console.error("Error sending invitation email:", error);
+    throw error; // Rethrow to let the controller catch it
   }
 };
