@@ -10,6 +10,7 @@ const http = require('http');
 const { connectToDb } = require('./config/db');
 const usersRouter = require('./routes/users');
 const timetableRouter = require('./routes/timetable');
+const reclamationRouter = require('./routes/reclamations');
 
 const app = express();
 
@@ -19,9 +20,9 @@ app.use(cors({
   credentials: true
 }));
 
-// view setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+// view setup - Disabled for pure API backend
+// app.set('views', path.join(__dirname, 'views'));
+// app.set('view engine', 'jade');
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -29,21 +30,30 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use('/users', usersRouter);
 app.use('/timetable', timetableRouter);
+app.use('/reclamations', reclamationRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  next(createError(404));
+  res.status(404).json({
+    message: "Route non trouvée",
+    path: req.originalUrl
+  });
 });
 
 // error handler
 app.use(function(err, req, res, next) {
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  res.status(err.status || 500);
-  res.render('error');
+  const status = err.status || 500;
+  res.status(status).json({
+    message: err.message,
+    error: req.app.get('env') === 'development' ? err : {}
+  });
 });
 
 const server = http.createServer(app);

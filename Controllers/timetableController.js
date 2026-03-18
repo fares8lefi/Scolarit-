@@ -2,6 +2,8 @@ const Class = require("../Models/ClassModel");
 const Subject = require("../Models/SubjectModel");
 const Classroom = require("../Models/ClassroomModel");
 const TimetableEntry = require("../Models/TimetableEntryModel");
+const User = require("../Models/UserModel");
+const { sendTimetableUpdateNotification } = require("../services/emailService");
 
 
 // Class Controllers
@@ -221,6 +223,24 @@ exports.updateTimetableEntry = async (req, res) => {
       .populate("subjectId")
       .populate("classroomId");
 
+    // Envoyer un email à TOUS les utilisateurs enregistrés et actifs
+    const users = await User.find({ status: "ACTIVE" }).select("email");
+    const emails = users.map(u => u.email).filter(e => e); // Ne garder que les emails valides
+
+    if (emails.length > 0) {
+      const entryInfo = {
+        className: populatedEntry.classId ? populatedEntry.classId.name : "N/A",
+        subjectName: populatedEntry.subjectId ? populatedEntry.subjectId.name : "N/A",
+        dayOfWeek: populatedEntry.dayOfWeek,
+        startTime: populatedEntry.startTime,
+        endTime: populatedEntry.endTime
+      };
+      
+      // On lance l'envoi sans attendre le résultat pour ne pas faire patienter l'utilisateur
+      sendTimetableUpdateNotification(emails, entryInfo)
+        .catch(err => console.error("Échec de l'envoi des notifications:", err));
+    }
+
     res.json(populatedEntry);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -240,7 +260,6 @@ exports.deleteTimetableEntry = async (req, res) => {
 exports.getParentTimetable = async (req, res) => {
   try {
     const parentId = req.params.parentId;
-    const User = require("../Models/UserModel");
     const parent = await User.findById(parentId);
 
     if (!parent || parent.role !== "PARENT") {
@@ -264,4 +283,67 @@ exports.getParentTimetable = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.checkAvailability = async (req, res) => {
+  try {
+    const { dayOfWeek, startTime, endTime, classroomId } = req.query;
+
+    if (!dayOfWeek || !startTime || !endTime) {
+      return res.status(400).json({ message: "dayOfWeek, startTime and endTime are required" });
+    }
+
+    const query = {
+      dayOfWeek,
+      $or: [
+        {
+          startTime: { $lt: endTime },
+          endTime: { $gt: startTime }
+        }
+      ]
+    };
+
+    if (classroomId) {
+      // Check if ONE specific classroom is free
+      const conflict = await TimetableEntry.findOne({ ...query, classroomId });
+      return res.json({ available: !conflict });
+    } else {
+      // Find ALL available classrooms for this slot
+      const occupiedClassrooms = await TimetableEntry.find(query).distinct("classroomId");
+      const everyClassroom = await Classroom.find();
+      const availableClassrooms = everyClassroom.filter(
+        (room) => !occupiedClassrooms.some((occupiedId) => occupiedId.equals(room._id))
+      );
+      return res.json(availableClassrooms);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+exports.getTeacherClasses = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const entries = await TimetableEntry.find({ teacherId }).distinct("classId");
+    const classes = await Class.find({ _id: { $in: entries } });
+    res.json(classes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getTeacherTimetable = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const entries = await TimetableEntry.find({ teacherId })
+      .populate("classId")
+      .populate("teacherId", "firstName lastName email")
+      .populate("subjectId")
+      .populate("classroomId");
+    res.json(entries);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 

@@ -34,4 +34,11 @@ router.delete("/entries/:id", timetableController.deleteTimetableEntry);
 // Parent timetable
 router.get("/parent/:parentId/entries", timetableController.getParentTimetable);
 
+// Teacher timetable
+router.get("/teacher/:teacherId/classes", timetableController.getTeacherClasses);
+router.get("/teacher/:teacherId/entries", timetableController.getTeacherTimetable);
+
+// Availability
+router.get("/availability", timetableController.checkAvailability);
+
 module.exports = router;
