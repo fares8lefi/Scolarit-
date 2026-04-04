@@ -168,7 +168,30 @@ exports.createTimetableEntry = async (req, res) => {
   try {
     const entry = new TimetableEntry(req.body);
     await entry.save();
-    res.status(201).json(entry);
+
+    const populatedEntry = await TimetableEntry.findById(entry._id)
+      .populate("classId")
+      .populate("teacherId", "firstName lastName email")
+      .populate("subjectId")
+      .populate("classroomId");
+
+    const users = await User.find({ status: "ACTIVE" }).select("email");
+    const emails = users.map(u => u.email).filter(e => e);
+
+    if (emails.length > 0) {
+      const entryInfo = {
+        className: populatedEntry.classId ? populatedEntry.classId.name : "N/A",
+        subjectName: populatedEntry.subjectId ? populatedEntry.subjectId.name : "N/A",
+        dayOfWeek: populatedEntry.dayOfWeek,
+        startTime: populatedEntry.startTime,
+        endTime: populatedEntry.endTime
+      };
+      
+      sendTimetableUpdateNotification(emails, entryInfo, "ajouté")
+        .catch(err => console.error("Échec de l'envoi des notifications:", err));
+    }
+
+    res.status(201).json(populatedEntry);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -249,8 +272,30 @@ exports.updateTimetableEntry = async (req, res) => {
 
 exports.deleteTimetableEntry = async (req, res) => {
   try {
-    const deletedEntry = await TimetableEntry.findByIdAndDelete(req.params.id);
-    if (!deletedEntry) return res.status(404).json({ message: "Cours non trouvé" });
+    const entryToDelete = await TimetableEntry.findById(req.params.id)
+      .populate("classId")
+      .populate("subjectId");
+
+    if (!entryToDelete) return res.status(404).json({ message: "Cours non trouvé" });
+
+    await TimetableEntry.findByIdAndDelete(req.params.id);
+
+    const users = await User.find({ status: "ACTIVE" }).select("email");
+    const emails = users.map(u => u.email).filter(e => e);
+
+    if (emails.length > 0) {
+      const entryInfo = {
+        className: entryToDelete.classId ? entryToDelete.classId.name : "N/A",
+        subjectName: entryToDelete.subjectId ? entryToDelete.subjectId.name : "N/A",
+        dayOfWeek: entryToDelete.dayOfWeek,
+        startTime: entryToDelete.startTime,
+        endTime: entryToDelete.endTime
+      };
+      
+      sendTimetableUpdateNotification(emails, entryInfo, "supprimé")
+        .catch(err => console.error("Échec de l'envoi des notifications:", err));
+    }
+
     res.json({ message: "Cours supprimé avec succès" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -278,7 +323,14 @@ exports.getParentTimetable = async (req, res) => {
       .populate("subjectId")
       .populate("classroomId");
       
-    res.json(entries);
+    const mergedEntries = entries.map(entry => {
+      const entryObj = entry.toObject();
+      const child = parent.children.find(c => c.classId.toString() === entry.classId._id.toString());
+      entryObj.childName = child ? child.name : "Élève";
+      return entryObj;
+    });
+
+    res.json(mergedEntries);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

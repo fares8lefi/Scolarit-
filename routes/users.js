@@ -5,7 +5,7 @@ const router = express.Router();
 
 /* GET users listing. */
 router.post('/invite', userController.inviteUser);
-router.post('/signup', userController.singup);
+router.post('/signup', userController.signup);
 router.post('/login', userController.login);
 router.post('/logout', userController.logout);
 router.get('/getUsers', userController.getUsers);

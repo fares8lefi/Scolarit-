@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-exports.sendTimetableUpdateNotification = async (emails, entryInfo) => {
+exports.sendTimetableUpdateNotification = async (emails, entryInfo, action = "mis à jour") => {
   try {
     const { className, subjectName, dayOfWeek, startTime, endTime } = entryInfo;
     
@@ -16,16 +16,18 @@ exports.sendTimetableUpdateNotification = async (emails, entryInfo) => {
     // Mais ici on va peut-être faire un envoi groupé simple ou boucler
     // Nodemailer supporte une liste d'emails séparés par des virgules
     
+    const actionTitle = action === "supprimé" ? "Suppression d'un cours" : "Mise à jour de l'Emploi du Temps";
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       bcc: emails,
-      subject: "Mise à jour de l'emploi du temps - Scolarité App",
-      text: `Bonjour,\n\nL'emploi du temps a été mis à jour.\n\nDétails du changement :\nClasse : ${className}\nMatière : ${subjectName}\nJour : ${dayOfWeek}\nHoraires : ${startTime} - ${endTime}\n\nMerci de consulter la plateforme pour plus de détails.`,
+      subject: `${actionTitle} - Scolarité App`,
+      text: `Bonjour,\n\nUn cours a été ${action}.\n\nDétails :\nClasse : ${className}\nMatière : ${subjectName}\nJour : ${dayOfWeek}\nHoraires : ${startTime} - ${endTime}\n\nMerci de consulter la plateforme pour plus de détails.`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-top: 5px solid #4a90e2;">
-          <h2 style="color: #4a90e2;">Mise à jour de l'Emploi du Temps</h2>
+          <h2 style="color: #4a90e2;">${actionTitle}</h2>
           <p>Bonjour,</p>
-          <p>L'emploi du temps a été mis à jour avec de nouveaux détails :</p>
+          <p>Un cours dans l'emploi du temps a été <strong>${action}</strong> avec les détails suivants :</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p><strong>Classe :</strong> ${className}</p>
             <p><strong>Matière :</strong> ${subjectName}</p>
@@ -44,7 +46,6 @@ exports.sendTimetableUpdateNotification = async (emails, entryInfo) => {
     console.log(`[DEBUG] Timetable update notification sent to ${emails.length} users.`);
   } catch (error) {
     console.error("Error sending timetable update notification:", error);
-    // On ne jette pas forcément d'erreur pour ne pas bloquer l'update du controller
-    // mais ici l'utilisateur demande spécifiquement cette fonctionnalité.
+    
   }
 };

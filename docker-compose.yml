@@ -1,0 +1,49 @@
+services:
+  
+  # Base de données MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_scolarite
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  # Interface pour gérer MongoDB
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo_express_scolarite
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    depends_on:
+      - mongodb
+
+  # Votre application Node.js
+  app:
+    build: .
+    container_name: app_scolarite
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    environment:
+      - DB_URL=mongodb://mongodb:27017/scolarite
+      - PORT=3000
+
+  front : 
+    image: nginx_front
+    build: ../scolarité-fornt
+    ports:
+      - "80:80"
+    depends_on:
+      - app 
+    
+volumes:
+  mongodb_data:

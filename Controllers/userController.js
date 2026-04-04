@@ -62,7 +62,7 @@ module.exports.inviteUser = async (req, res) => {
   }
 };
 
-module.exports.singup = async (req, res) => {
+module.exports.signup = async (req, res) => {
   try {
     const { error } = validateAcceptInvitation(req.body);
     if (error) {
@@ -70,8 +70,14 @@ module.exports.singup = async (req, res) => {
     }
 
     const { email, invitationCode, password, phone } = req.body;
+    console.log("email", email);
+    console.log("invitationCode", invitationCode);
+    console.log("password", password);
+    console.log("phone", phone);
+    
+    const normalizedEmail = email ? email.toLowerCase().trim() : email;
 
-    const user = await userModel.findOne({ email, invitationCode });
+    const user = await userModel.findOne({ email: normalizedEmail, invitationCode });
 
     if (!user) {
       return res.status(404).json({ message: "Invitation invalide ou utilisateur introuvable" });
@@ -108,9 +114,11 @@ module.exports.login = async (req, res) => {
     }
 
     const { email, password } = req.body;
+    
+    const normalizedEmail = email ? email.toLowerCase().trim() : email;
 
     // Vérifier si l'utilisateur existe
-    const user = await userModel.findOne({ email })
+    const user = await userModel.findOne({ email: normalizedEmail })
       .populate('classId')
       .populate('children.classId');
       
@@ -137,7 +145,7 @@ module.exports.login = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "DIAGNOSTIC REUSSI",
+      message: "Connexion réussie",
       token,
       user: {
         _id: user._id,
@@ -146,8 +154,7 @@ module.exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         classId: user.classId,
-        children: user.children,
-        diag: "BACKEND_UPDATED"
+        children: user.children
       }
     });
   } catch (error) {
